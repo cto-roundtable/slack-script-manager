@@ -1,5 +1,7 @@
 # Slack Member Comparer
 
+An AI three shot script for comparing some values in our slack network, we do not take responsibility for this code being representable, but it works!
+
 A TypeScript CLI tool for comparing members between Slack channels using Bun runtime. This tool shows the symmetric difference - members who are in one channel but not the other.
 
 ## Features
