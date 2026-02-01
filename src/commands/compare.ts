@@ -62,6 +62,10 @@ async function executeCompare(options: ComparisonOptions): Promise<void> {
   }
 }
 
+function formatUsernamesAsList(users: any[]): string {
+  return users.map(user => user.name).join(', ');
+}
+
 function displayComparisonResults(comparison: any, verbose?: boolean): void {
   const { channelAName, channelBName, uniqueToA, uniqueToB, totalUniqueCount } = comparison;
 
@@ -105,7 +109,7 @@ function displayComparisonResults(comparison: any, verbose?: boolean): void {
     });
 
     tableA.printTable();
-    console.log('');
+    console.log(`\n📝 Usernames: ${formatUsernamesAsList(uniqueToA)}\n`);
   }
 
   // Members only in Channel B
@@ -135,6 +139,7 @@ function displayComparisonResults(comparison: any, verbose?: boolean): void {
     });
 
     tableB.printTable();
+    console.log(`\n📝 Usernames: ${formatUsernamesAsList(uniqueToB)}\n`);
   }
 
   // Verbose output
