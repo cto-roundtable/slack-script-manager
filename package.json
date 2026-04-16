@@ -13,6 +13,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "@slack/web-api": "^7.6.0",
     "commander": "^12.0.0",
     "console-table-printer": "^2.12.1",

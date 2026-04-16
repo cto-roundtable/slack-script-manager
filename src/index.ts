@@ -3,6 +3,7 @@
 import { Command } from 'commander';
 import { config } from 'dotenv';
 import { createCompareCommand } from './commands/compare.js';
+import { createSyncCommand } from './commands/sync.js';
 
 // Load environment variables
 config();
@@ -16,11 +17,12 @@ program
 
 // Add commands
 program.addCommand(createCompareCommand());
+program.addCommand(createSyncCommand());
 
 // Handle case where no command is provided - default to compare
 if (process.argv.length > 2 && !process.argv[2].startsWith('-')) {
   // If first arg is not a flag and not a known command, assume it's for compare
-  const knownCommands = ['compare', 'help', '--help', '-h', '--version', '-V'];
+  const knownCommands = ['compare', 'sync', 'help', '--help', '-h', '--version', '-V'];
   if (!knownCommands.includes(process.argv[2])) {
     // Insert 'compare' command
     process.argv.splice(2, 0, 'compare');

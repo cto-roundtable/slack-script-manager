@@ -160,6 +160,51 @@ export class SlackClient {
   }
 
   /**
+   * Get channel metadata + member Slack IDs (public method wrapper)
+   */
+  async resolveChannel(channelName: string): Promise<{ id: string; name: string; isPrivate: boolean }> {
+    return this.getChannelIdFromName(channelName);
+  }
+
+  /**
+   * Get the emails of all members currently in a channel.
+   * Returns a Set of lowercased emails. Users without an email (e.g. bots) are skipped.
+   */
+  async getChannelMemberEmails(channelName: string): Promise<{ emails: Set<string>; users: SlackUser[]; channelInfo: SlackChannel }> {
+    const { users, channelInfo } = await this.getChannelMembersByName(channelName);
+    const emails = new Set<string>();
+    for (const u of users) {
+      if (u.email && u.email !== 'No email') emails.add(u.email.toLowerCase());
+    }
+    return { emails, users, channelInfo };
+  }
+
+  /**
+   * Resolve an email to a Slack user ID. Returns null if not in workspace.
+   */
+  async lookupUserIdByEmail(email: string): Promise<string | null> {
+    try {
+      const result = await this.web.users.lookupByEmail({ email });
+      if (!result.ok || !result.user) return null;
+      return result.user.id || null;
+    } catch (err: any) {
+      if (err?.data?.error === 'users_not_found') return null;
+      throw err;
+    }
+  }
+
+  /**
+   * Invite one or more user IDs to a channel. Slack accepts up to 1000 IDs per call.
+   */
+  async inviteToChannel(channelId: string, userIds: string[]): Promise<void> {
+    if (userIds.length === 0) return;
+    await this.web.conversations.invite({
+      channel: channelId,
+      users: userIds.join(','),
+    });
+  }
+
+  /**
    * Test the connection and token validity
    */
   async testConnection(): Promise<{ ok: boolean; user?: string; team?: string }> {
