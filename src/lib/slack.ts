@@ -168,15 +168,50 @@ export class SlackClient {
 
   /**
    * Get the emails of all members currently in a channel.
+   * Accepts either a channel name (with or without #) or a channel ID (Cxxxx/Gxxxx).
    * Returns a Set of lowercased emails. Users without an email (e.g. bots) are skipped.
    */
-  async getChannelMemberEmails(channelName: string): Promise<{ emails: Set<string>; users: SlackUser[]; channelInfo: SlackChannel }> {
-    const { users, channelInfo } = await this.getChannelMembersByName(channelName);
+  async getChannelMemberEmails(channelNameOrId: string): Promise<{ emails: Set<string>; users: SlackUser[]; channelInfo: SlackChannel }> {
+    const isId = /^[CG][A-Z0-9]+$/.test(channelNameOrId);
+    const { users, channelInfo } = isId
+      ? await this.getChannelMembersById(channelNameOrId)
+      : await this.getChannelMembersByName(channelNameOrId);
     const emails = new Set<string>();
     for (const u of users) {
       if (u.email && u.email !== 'No email') emails.add(u.email.toLowerCase());
     }
     return { emails, users, channelInfo };
+  }
+
+  /**
+   * Get channel members by channel ID. Used when we already have the id stored
+   * (e.g. pipeline_deals.slack_channel_id) and don't need to resolve by name.
+   */
+  private async getChannelMembersById(channelId: string): Promise<{ users: SlackUser[]; channelInfo: SlackChannel }> {
+    const info = await this.web.conversations.info({ channel: channelId });
+    if (!info.ok || !info.channel) {
+      throw new Error(`conversations.info failed for ${channelId}: ${info.error || 'unknown'}`);
+    }
+    const channelInfo = {
+      id: info.channel.id!,
+      name: info.channel.name!,
+      isPrivate: info.channel.is_private || false,
+    };
+
+    const members: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const result = await this.web.conversations.members({ channel: channelId, cursor, limit: 1000 });
+      if (!result.ok) throw new Error(`Failed to fetch members: ${result.error}`);
+      if (result.members) members.push(...result.members);
+      cursor = result.response_metadata?.next_cursor;
+    } while (cursor);
+
+    const users = await this.getUsersInfo(members);
+    return {
+      users,
+      channelInfo: { ...channelInfo, memberCount: members.length },
+    };
   }
 
   /**
@@ -202,6 +237,29 @@ export class SlackClient {
       channel: channelId,
       users: userIds.join(','),
     });
+  }
+
+  /**
+   * Create a private channel. Returns channel id + name.
+   * Throws if a channel with this name already exists.
+   */
+  async createPrivateChannel(name: string): Promise<{ id: string; name: string }> {
+    const cleanName = name.replace('#', '');
+    const result = await this.web.conversations.create({
+      name: cleanName,
+      is_private: true,
+    });
+    if (!result.ok || !result.channel?.id || !result.channel?.name) {
+      throw new Error(`conversations.create failed: ${result.error || 'unknown'}`);
+    }
+    return { id: result.channel.id, name: result.channel.name };
+  }
+
+  /**
+   * Set a channel's topic.
+   */
+  async setChannelTopic(channelId: string, topic: string): Promise<void> {
+    await this.web.conversations.setTopic({ channel: channelId, topic });
   }
 
   /**
