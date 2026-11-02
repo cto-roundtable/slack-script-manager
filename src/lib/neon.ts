@@ -1,5 +1,8 @@
 import { neon } from '@neondatabase/serverless';
 
+/** Who-string for audit_log, convention in ctoroundtable-hq security.md ("Audit trail"). */
+const ACTOR_PROVISION = 'cli:slack-script-manager:provision';
+
 export interface MemberRecord {
   personId: string;
   name: string;
@@ -172,11 +175,18 @@ export class NeonClient {
     return Array.from(byPerson.values());
   }
 
+  /**
+   * The write names this CLI in Neon's audit_log (ctoroundtable-hq migration 046):
+   * app.changed_by is set in the same transaction as the update.
+   */
   async setDealSlackChannelId(dealId: string, channelId: string): Promise<void> {
-    await this.sql`
-      UPDATE pipeline_deals
-      SET slack_channel_id = ${channelId}, updated_at = now()
-      WHERE id = ${dealId}
-    `;
+    await this.sql.transaction([
+      this.sql`SELECT set_config('app.changed_by', ${ACTOR_PROVISION}, true)`,
+      this.sql`
+        UPDATE pipeline_deals
+        SET slack_channel_id = ${channelId}, updated_at = now()
+        WHERE id = ${dealId}
+      `,
+    ]);
   }
 }
